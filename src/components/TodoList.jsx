@@ -41,7 +41,7 @@ function SortableItem({ todo, onToggle, onDelete, onUpdate, isSelectionMode, isS
         <div
             ref={setNodeRef}
             style={style}
-            className="glass-panel"
+            className="glass-panel animate-fade-in"
             onClick={() => isSelectionMode && onSelect(todo.id)}
         >
             <TodoItemContent
@@ -55,13 +55,14 @@ function SortableItem({ todo, onToggle, onDelete, onUpdate, isSelectionMode, isS
             />
         </div>
     );
+
 }
 
 // --- Simple Item (Used in Date View) ---
 function SimpleItem({ todo, onToggle, onDelete, onUpdate, isSelectionMode, isSelected, onSelect }) {
     return (
         <div
-            className="glass-panel"
+            className="glass-panel animate-fade-in"
             onClick={() => isSelectionMode && onSelect(todo.id)}
         >
             <TodoItemContent
@@ -116,6 +117,7 @@ function TodoItemContent({ todo, onToggle, onDelete, onUpdate, isSelectionMode, 
 
             {!isSelectionMode && (
                 <button
+                    className="checkbox-anim"
                     onClick={(e) => { e.stopPropagation(); onToggle(todo.id); }}
                     style={{
                         width: '24px',

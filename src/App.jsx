@@ -5,7 +5,7 @@ import TodoList from './components/TodoList';
 import SettingsModal from './components/SettingsModal';
 import useLocalStorage from './hooks/useLocalStorage';
 import { generateTodosFromText } from './services/gemini';
-import { initGoogleAuth, syncToGoogleTasks, fetchFromGoogleTasks, updateGoogleTask } from './services/googleTasks';
+import { initGoogleAuth, syncToGoogleTasks, updateGoogleTask } from './services/googleTasks';
 import { v4 as uuidv4 } from 'uuid';
 
 import { arrayMove } from '@dnd-kit/sortable';
@@ -148,14 +148,11 @@ function App() {
             // 1. Push: Sync local new tasks to Google (Create)
             const syncedResults = await syncToGoogleTasks(todos);
 
-            // 2. Pull: Fetch all tasks from Google to check status
-            const googleTasks = await fetchFromGoogleTasks();
-
             let updatedTodos = [...todos];
             let newCount = 0;
             let updateCount = 0;
 
-            // Update local todos with newly synced IDs first
+            // Update local todos with newly synced IDs
             if (syncedResults.length > 0) {
                 updatedTodos = updatedTodos.map(todo => {
                     const synced = syncedResults.find(r => r.id === todo.id);
@@ -164,30 +161,24 @@ function App() {
                 newCount = syncedResults.length;
             }
 
-            // 3. Status Sync Logic (Union of Completion)
-            // If either side is completed, make the other side completed.
-            for (let i = 0; i < updatedTodos.length; i++) {
-                const localTask = updatedTodos[i];
-                if (!localTask.googleTaskId) continue;
+            // 2. Push Status Updates (Local -> Google only)
+            // If local is completed but Google might not be (we don't check Google, we just push if we have an ID)
+            // Actually, without checking Google's state, we should just push completion if local is completed.
+            // But to be safe and avoid unnecessary API calls, we might want to track if it was already synced as completed?
+            // For now, let's just push 'completed' status for any task that has a googleTaskId and is completed.
+            // Optimization: In a real app, we'd track 'dirty' state. Here, we'll just iterate.
 
-                const googleTask = googleTasks.find(g => g.id === localTask.googleTaskId);
-                if (!googleTask) continue;
-
-                const googleCompleted = googleTask.status === 'completed';
-
-                // Case A: Local is Completed, Google is Active -> Update Google to Completed
-                if (localTask.completed && !googleCompleted) {
+            for (const task of updatedTodos) {
+                if (task.googleTaskId && task.completed) {
+                    // We blindly update to completed. If it's already completed, it's a redundant call but safe.
+                    // To avoid too many calls, maybe we can skip? But we don't know remote state.
+                    // Let's assume the user wants to ensure Google is up to date.
                     try {
-                        await updateGoogleTask(localTask.googleTaskId, { status: 'completed' });
-                        updateCount++;
+                        await updateGoogleTask(task.googleTaskId, { status: 'completed' });
+                        updateCount++; // This might over-count if already completed, but acceptable for "one-way sync" confirmation
                     } catch (e) {
-                        console.error(`Failed to update Google Task ${localTask.googleTaskId}`, e);
+                        console.error(`Failed to update Google Task ${task.googleTaskId}`, e);
                     }
-                }
-                // Case B: Local is Active, Google is Completed -> Update Local to Completed
-                else if (!localTask.completed && googleCompleted) {
-                    updatedTodos[i] = { ...localTask, completed: true };
-                    updateCount++;
                 }
             }
 
@@ -268,7 +259,9 @@ function App() {
                 display: 'flex',
                 justifyContent: 'space-between',
                 alignItems: 'center',
-                marginBottom: '2rem'
+                marginBottom: '2rem',
+                flexWrap: 'wrap',
+                gap: '1rem'
             }}>
                 <h1>AI ToDo List</h1>
                 <div style={{ display: 'flex', gap: '0.5rem' }}>
@@ -292,12 +285,12 @@ function App() {
                         {isSyncing ? (
                             <>
                                 <RefreshCw size={18} className="animate-spin" />
-                                同期中...
+                                <span className="hide-on-mobile">同期中...</span>
                             </>
                         ) : (
                             <>
                                 <RefreshCw size={18} />
-                                Google同期
+                                <span className="hide-on-mobile">Google同期</span>
                             </>
                         )}
                     </button>
@@ -324,7 +317,7 @@ function App() {
             )}
 
             {successMsg && (
-                <div className="glass-panel animate-fade-in" style={{
+                <div className="glass-panel animate-pop-in" style={{
                     padding: '1rem',
                     marginBottom: '1rem',
                     background: 'rgba(16, 185, 129, 0.2)',

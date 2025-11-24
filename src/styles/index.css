@@ -23,7 +23,7 @@ body {
   color: var(--text-color);
   font-family: var(--font-family);
   min-height: 100vh;
-  background-image: 
+  background-image:
     radial-gradient(at 0% 0%, rgba(59, 130, 246, 0.15) 0px, transparent 50%),
     radial-gradient(at 100% 0%, rgba(139, 92, 246, 0.15) 0px, transparent 50%),
     radial-gradient(at 100% 100%, rgba(16, 185, 129, 0.15) 0px, transparent 50%),
@@ -42,7 +42,9 @@ body {
 }
 
 /* Typography */
-h1, h2, h3 {
+h1,
+h2,
+h3 {
   font-weight: 700;
   letter-spacing: -0.025em;
 }
@@ -51,6 +53,7 @@ h1 {
   font-size: 2.5rem;
   background: linear-gradient(to right, #60a5fa, #a78bfa);
   -webkit-background-clip: text;
+  background-clip: text;
   -webkit-text-fill-color: transparent;
   margin-bottom: 0.5rem;
 }
@@ -142,12 +145,45 @@ h1 {
 
 /* Animations */
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes popIn {
+  0% {
+    transform: scale(0.9);
+    opacity: 0;
+  }
+
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes strikeThrough {
+  0% {
+    width: 0;
+  }
+
+  100% {
+    width: 100%;
+  }
 }
 
 .animate-fade-in {
   animation: fadeIn 0.3s ease-out forwards;
+}
+
+.animate-pop-in {
+  animation: popIn 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
 }
 
 /* Scrollbar */
@@ -166,4 +202,64 @@ h1 {
 
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.2);
+}
+
+/* Mobile Responsiveness */
+@media (max-width: 600px) {
+  #root {
+    padding: 1rem;
+    max-width: 100%;
+  }
+
+  h1 {
+    font-size: 1.8rem;
+  }
+
+  .btn {
+    padding: 0.6rem 1rem;
+    font-size: 0.9rem;
+  }
+
+  .glass-panel {
+    border-radius: 12px;
+  }
+
+  /* Stack header buttons on very small screens if needed, 
+     but flex-wrap usually handles it. 
+     Let's ensure the header area wraps nicely. */
+  .hide-on-mobile {
+    display: none;
+  }
+}
+
+/* Enhanced Interactions */
+.btn:active {
+  transform: scale(0.96);
+}
+
+.glass-panel {
+  transition: transform 0.2s ease, box-shadow 0.2s ease, background-color 0.2s;
+}
+
+.glass-panel:hover {
+  /* Subtle lift for interactive panels */
+  transform: translateY(-2px);
+  box-shadow: 0 12px 40px 0 rgba(0, 0, 0, 0.45);
+}
+
+/* Disable hover lift for static containers if desired, 
+   but it looks nice on everything usually. 
+   Maybe disable for the main input section if it feels weird. */
+.input-section:hover {
+  transform: none;
+  box-shadow: var(--glass-shadow);
+}
+
+/* Checkbox Animation */
+.checkbox-anim {
+  transition: all 0.3s cubic-bezier(0.4, 0.0, 0.2, 1);
+}
+
+.checkbox-anim:active {
+  transform: scale(0.9);
 }

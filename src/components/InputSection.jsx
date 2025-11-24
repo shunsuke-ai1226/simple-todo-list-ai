@@ -25,9 +25,8 @@ export default function InputSection({ onGenerate, onAdd, isGenerating }) {
 
   const handleKeyDown = (e) => {
     if (e.key === 'Enter') {
-      if (e.metaKey || e.ctrlKey) {
-        handleSubmit(e);
-      } else {
+      if (e.shiftKey) {
+        // Shift + Enter -> Manual Add
         e.preventDefault();
         if (!input.trim()) return;
         onAdd(input);
@@ -35,6 +34,10 @@ export default function InputSection({ onGenerate, onAdd, isGenerating }) {
         if (textareaRef.current) {
           textareaRef.current.style.height = 'auto';
         }
+      } else if (!e.nativeEvent.isComposing) {
+        // Enter (without Shift) -> AI Generate
+        // Check isComposing to avoid triggering during IME conversion (Japanese input)
+        handleSubmit(e);
       }
     }
   };
@@ -68,7 +71,7 @@ export default function InputSection({ onGenerate, onAdd, isGenerating }) {
             marginTop: '1rem'
           }}>
             <span style={{ fontSize: '0.8rem', color: '#94a3b8' }}>
-              ⌘ + Enter で送信
+              Enter でAI解析 / Shift + Enter でそのまま追加
             </span>
             <button
               type="submit"
@@ -83,7 +86,7 @@ export default function InputSection({ onGenerate, onAdd, isGenerating }) {
               ) : (
                 <>
                   <Sparkles size={18} />
-                  AIでリスト作成
+                  AIで解析
                 </>
               )}
             </button>
@@ -102,7 +105,7 @@ export default function InputSection({ onGenerate, onAdd, isGenerating }) {
               style={{ marginLeft: '0.5rem' }}
             >
               <Plus size={18} />
-              追加
+              そのまま追加
             </button>
           </div>
         </div>
