@@ -79,7 +79,18 @@ export const syncToGoogleTasks = async (todos) => {
         };
 
         if (todo.date) {
-            body.due = new Date(todo.date).toISOString();
+            let dateStr = todo.date;
+            if (todo.time) {
+                dateStr += `T${todo.time}:00`;
+            } else {
+                dateStr += 'T00:00:00';
+            }
+            // Create date object and format to ISO string
+            // Note: Google Tasks 'due' field is technically date-only in many contexts, 
+            // but sending RFC3339 timestamp is required. 
+            // If we send time, it might be stored but not displayed in some views, 
+            // or truncated. However, we will try to send the full timestamp.
+            body.due = new Date(dateStr).toISOString();
         }
 
         const res = await fetch(`https://tasks.googleapis.com/tasks/v1/lists/${defaultListId}/tasks`, {
