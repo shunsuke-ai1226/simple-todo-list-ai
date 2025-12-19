@@ -16,8 +16,9 @@ const loadGoogleScript = () => {
 };
 
 // Helper: Format date for Google Tasks API
-// Google Tasks APIはRFC3339形式（YYYY-MM-DDTHH:mm:ssZ）を期待
-// 日付のみの場合は、ローカルタイムゾーンの午前0時として送信
+// Google Tasks APIでは:
+// - 終日タスク: dueフィールドに日付のみ（YYYY-MM-DD）を送信
+// - 時間指定タスク: dueフィールドにRFC3339形式（YYYY-MM-DDTHH:mm:ss+HH:mm）を送信
 const formatDateForGoogleTasks = (date, time) => {
     if (!date) return null;
     
@@ -28,7 +29,7 @@ const formatDateForGoogleTasks = (date, time) => {
         return null;
     }
     
-    // 時間が指定されている場合
+    // 時間が指定されている場合: RFC3339形式で送信（時間指定タスク）
     if (time && time.trim()) {
         // 時間形式を検証（HH:mm形式）
         const timeRegex = /^\d{2}:\d{2}$/;
@@ -44,23 +45,14 @@ const formatDateForGoogleTasks = (date, time) => {
             const offsetSign = offset >= 0 ? '+' : '-';
             const offsetStr = `${offsetSign}${String(offsetHours).padStart(2, '0')}:${String(offsetMinutes).padStart(2, '0')}`;
             
-            // RFC3339形式: YYYY-MM-DDTHH:mm:ss+HH:mm
+            // RFC3339形式: YYYY-MM-DDTHH:mm:ss+HH:mm（時間指定タスク）
             return `${date}T${time.trim()}:00${offsetStr}`;
         }
     }
     
-    // 時間が指定されていない場合: ローカルタイムゾーンの午前0時として送信
-    // これにより、どのタイムゾーンからアクセスしても同じ日付が表示される
-    const dateTimeStr = `${date}T00:00:00`;
-    const localDate = new Date(dateTimeStr);
-    const offset = -localDate.getTimezoneOffset();
-    const offsetHours = Math.floor(Math.abs(offset) / 60);
-    const offsetMinutes = Math.abs(offset) % 60;
-    const offsetSign = offset >= 0 ? '+' : '-';
-    const offsetStr = `${offsetSign}${String(offsetHours).padStart(2, '0')}:${String(offsetMinutes).padStart(2, '0')}`;
-    
-    // RFC3339形式: YYYY-MM-DDTHH:mm:ss+HH:mm
-    return `${date}T00:00:00${offsetStr}`;
+    // 時間が指定されていない場合: 日付のみを送信（終日タスク）
+    // Google Tasks APIは日付のみ（YYYY-MM-DD）を受け付ける
+    return date;
 };
 
 // Helper: Get Access Token (Cached or New)
