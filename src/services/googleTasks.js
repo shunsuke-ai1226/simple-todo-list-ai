@@ -144,22 +144,34 @@ export const syncToGoogleTasks = async (todos) => {
                 continue;
             }
 
+            // タイトルに時間情報を追加（Google Tasks APIが時間をサポートしていない場合の代替案）
+            let taskTitle = todo.title.trim();
+            const timeValue = todo.time && todo.time.trim() ? todo.time.trim() : null;
+            
+            // 時間が指定されている場合、タイトルに時間を追加
+            // ただし、既にタイトルに時間が含まれている場合は追加しない
+            if (timeValue && !taskTitle.includes(timeValue) && !taskTitle.match(/\[\d{2}:\d{2}\]/)) {
+                taskTitle = `${taskTitle} [${timeValue}]`;
+            }
+            
             const body = {
-                title: todo.title.trim(),
+                title: taskTitle,
             };
 
-            // notesフィールドはオプションなので、値がある場合のみ追加
-            if (todo.notes && todo.notes.trim()) {
-                body.notes = todo.notes.trim();
-            } else {
-                body.notes = "Created by AI ToDo App";
+            // notesフィールドに時間情報を追加
+            let notesContent = "Created by AI ToDo App";
+            if (timeValue) {
+                notesContent = `時間: ${timeValue}\n${notesContent}`;
             }
+            if (todo.notes && todo.notes.trim()) {
+                notesContent = `${todo.notes.trim()}\n${notesContent}`;
+            }
+            body.notes = notesContent;
 
             // 日付がある場合のみdueフィールドを追加
             // Google Tasks APIはRFC3339形式（YYYY-MM-DDTHH:mm:ssZ）または日付のみ（YYYY-MM-DD）を受け付ける
+            // 注意: Google Tasks APIは時間情報を保持しない可能性があるため、タイトルとnotesにも時間を追加
             if (todo.date && todo.date.trim()) {
-                // timeフィールドの値を確認（空文字列、null、undefinedをチェック）
-                const timeValue = todo.time && todo.time.trim() ? todo.time.trim() : null;
                 console.log(`タスク「${todo.title}」の日付・時間: date=${todo.date}, time=${timeValue || '(なし)'}, raw time="${todo.time}"`);
                 const dueDate = formatDateForGoogleTasks(todo.date.trim(), timeValue);
                 console.log(`フォーマット後のdue: ${dueDate}`);
