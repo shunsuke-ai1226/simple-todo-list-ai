@@ -148,15 +148,26 @@ export const syncToGoogleTasks = async (todos) => {
             let taskTitle = todo.title.trim();
             const timeValue = todo.time && todo.time.trim() ? todo.time.trim() : null;
             
+            console.log(`タイトル処理前: "${taskTitle}", timeValue: ${timeValue || 'null'}`);
+            
             // 時間が指定されている場合、タイトルに時間を追加
             // ただし、既にタイトルに時間が含まれている場合は追加しない
-            if (timeValue && !taskTitle.includes(timeValue) && !taskTitle.match(/\[\d{2}:\d{2}\]/)) {
-                taskTitle = `${taskTitle} [${timeValue}]`;
+            if (timeValue) {
+                const hasTimeInTitle = taskTitle.includes(timeValue) || taskTitle.match(/\[\d{2}:\d{2}\]/);
+                console.log(`時間が指定されています。タイトルに時間が含まれているか: ${hasTimeInTitle}`);
+                if (!hasTimeInTitle) {
+                    taskTitle = `${taskTitle} [${timeValue}]`;
+                    console.log(`タイトルに時間を追加: "${taskTitle}"`);
+                }
+            } else {
+                console.log(`時間が指定されていないため、タイトルに時間を追加しません`);
             }
             
             const body = {
-                title: taskTitle,
+                title: taskTitle, // 時間が追加されたタイトルを使用
             };
+            
+            console.log(`最終的なbody.title: "${body.title}"`);
 
             // notesフィールドに時間情報を追加
             let notesContent = "Created by AI ToDo App";
