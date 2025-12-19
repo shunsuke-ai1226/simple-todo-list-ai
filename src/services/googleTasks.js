@@ -77,36 +77,64 @@ export const syncToGoogleTasks = async (todos) => {
     const listResp = await fetch('https://tasks.googleapis.com/tasks/v1/users/@me/lists', {
         headers: { Authorization: `Bearer ${accessToken}` }
     });
+    
+    if (!listResp.ok) {
+        const errorText = await listResp.text();
+        throw new Error(`タスクリストの取得に失敗しました: ${listResp.status} ${errorText}`);
+    }
+    
     const lists = await listResp.json();
+    
+    if (!lists.items || lists.items.length === 0) {
+        throw new Error('タスクリストが見つかりません。Google Tasksでリストを作成してください。');
+    }
+    
     const defaultListId = lists.items[0].id;
+    console.log(`使用するタスクリストID: ${defaultListId}`);
 
     const syncedResults = [];
     let updateCount = 0;
 
     // 2. Add new incomplete tasks that haven't been synced yet
     const newTasksToSync = todos.filter(t => !t.completed && !t.googleTaskId);
+    console.log(`同期対象の新規タスク: ${newTasksToSync.length}件`);
+    
     for (const todo of newTasksToSync) {
-        const body = {
-            title: todo.title,
-            notes: "Created by AI ToDo App",
-        };
+        try {
+            const body = {
+                title: todo.title,
+                notes: "Created by AI ToDo App",
+            };
 
-        if (todo.date) {
-            body.due = formatDateForGoogleTasks(todo.date, todo.time);
-        }
+            // 日付がある場合のみdueフィールドを追加（nullは送信しない）
+            if (todo.date) {
+                const dueDate = formatDateForGoogleTasks(todo.date, todo.time);
+                if (dueDate) {
+                    body.due = dueDate;
+                }
+            }
 
-        const res = await fetch(`https://tasks.googleapis.com/tasks/v1/lists/${defaultListId}/tasks`, {
-            method: 'POST',
-            headers: {
-                Authorization: `Bearer ${accessToken}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(body)
-        });
+            const res = await fetch(`https://tasks.googleapis.com/tasks/v1/lists/${defaultListId}/tasks`, {
+                method: 'POST',
+                headers: {
+                    Authorization: `Bearer ${accessToken}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(body)
+            });
 
-        if (res.ok) {
-            const data = await res.json();
-            syncedResults.push({ id: todo.id, googleTaskId: data.id });
+            if (res.ok) {
+                const data = await res.json();
+                syncedResults.push({ id: todo.id, googleTaskId: data.id });
+                console.log(`タスク同期成功: ${todo.title} -> ${data.id}`);
+            } else {
+                const errorText = await res.text();
+                console.error(`タスク同期失敗: ${todo.title}`, res.status, errorText);
+                // エラーが発生しても処理を続行（他のタスクは同期を試みる）
+            }
+        } catch (error) {
+            console.error(`タスク同期エラー: ${todo.title}`, error);
+            // エラーが発生しても処理を続行
         }
     }
 

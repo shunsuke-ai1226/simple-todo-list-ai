@@ -145,6 +145,10 @@ function App() {
         setError(null);
         setSuccessMsg(null);
         try {
+            // 同期対象のタスクを確認
+            const newTasksToSync = todos.filter(t => !t.completed && !t.googleTaskId);
+            console.log(`同期開始: 新規タスク ${newTasksToSync.length}件, 全タスク ${todos.length}件`);
+            
             // Sync local tasks to Google (Create new + Update existing)
             const { syncedResults, updateCount: taskUpdateCount } = await syncToGoogleTasks(todos);
 
@@ -153,12 +157,15 @@ function App() {
             let statusUpdateCount = 0;
 
             // Update local todos with newly synced IDs
-            if (syncedResults.length > 0) {
+            if (syncedResults && syncedResults.length > 0) {
                 updatedTodos = updatedTodos.map(todo => {
                     const synced = syncedResults.find(r => r.id === todo.id);
                     return synced ? { ...todo, googleTaskId: synced.googleTaskId } : todo;
                 });
                 newCount = syncedResults.length;
+                console.log(`同期成功: ${newCount}件のタスクをGoogleに追加`);
+            } else {
+                console.log('同期された新規タスクはありません');
             }
 
             // Push Status Updates (Local -> Google only)
@@ -183,12 +190,17 @@ function App() {
             if (msgParts.length > 0) {
                 setSuccessMsg(`同期完了: ${msgParts.join(', ')}`);
             } else {
-                setSuccessMsg("最新の状態です");
+                // 新規タスクがあるのに同期されなかった場合
+                if (newTasksToSync.length > 0) {
+                    setError(`同期できませんでした。ブラウザのコンソール（F12）でエラーを確認してください。`);
+                } else {
+                    setSuccessMsg("最新の状態です");
+                }
             }
 
         } catch (err) {
-            console.error(err);
-            setError("同期に失敗しました。再試行してください。");
+            console.error('同期エラー:', err);
+            setError(`同期に失敗しました: ${err.message || '不明なエラー'}`);
             // Only open settings if we really suspect missing ID, but usually it's just network or token
             if (!localStorage.getItem('google_client_id')) {
                 setIsSettingsOpen(true);
