@@ -145,12 +145,12 @@ function App() {
         setError(null);
         setSuccessMsg(null);
         try {
-            // 1. Push: Sync local new tasks to Google (Create)
-            const syncedResults = await syncToGoogleTasks(todos);
+            // Sync local tasks to Google (Create new + Update existing)
+            const { syncedResults, updateCount: taskUpdateCount } = await syncToGoogleTasks(todos);
 
             let updatedTodos = [...todos];
             let newCount = 0;
-            let updateCount = 0;
+            let statusUpdateCount = 0;
 
             // Update local todos with newly synced IDs
             if (syncedResults.length > 0) {
@@ -161,21 +161,12 @@ function App() {
                 newCount = syncedResults.length;
             }
 
-            // 2. Push Status Updates (Local -> Google only)
-            // If local is completed but Google might not be (we don't check Google, we just push if we have an ID)
-            // Actually, without checking Google's state, we should just push completion if local is completed.
-            // But to be safe and avoid unnecessary API calls, we might want to track if it was already synced as completed?
-            // For now, let's just push 'completed' status for any task that has a googleTaskId and is completed.
-            // Optimization: In a real app, we'd track 'dirty' state. Here, we'll just iterate.
-
+            // Push Status Updates (Local -> Google only)
             for (const task of updatedTodos) {
                 if (task.googleTaskId && task.completed) {
-                    // We blindly update to completed. If it's already completed, it's a redundant call but safe.
-                    // To avoid too many calls, maybe we can skip? But we don't know remote state.
-                    // Let's assume the user wants to ensure Google is up to date.
                     try {
                         await updateGoogleTask(task.googleTaskId, { status: 'completed' });
-                        updateCount++; // This might over-count if already completed, but acceptable for "one-way sync" confirmation
+                        statusUpdateCount++;
                     } catch (e) {
                         console.error(`Failed to update Google Task ${task.googleTaskId}`, e);
                     }
@@ -186,7 +177,8 @@ function App() {
 
             const msgParts = [];
             if (newCount > 0) msgParts.push(`${newCount}件をGoogleに追加`);
-            if (updateCount > 0) msgParts.push(`${updateCount}件の状態を同期`);
+            if (taskUpdateCount > 0) msgParts.push(`${taskUpdateCount}件を更新`);
+            if (statusUpdateCount > 0) msgParts.push(`${statusUpdateCount}件の状態を同期`);
 
             if (msgParts.length > 0) {
                 setSuccessMsg(`同期完了: ${msgParts.join(', ')}`);

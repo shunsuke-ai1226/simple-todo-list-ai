@@ -80,11 +80,12 @@ export const syncToGoogleTasks = async (todos) => {
     const lists = await listResp.json();
     const defaultListId = lists.items[0].id;
 
-    // 2. Add incomplete tasks that haven't been synced yet
-    const tasksToSync = todos.filter(t => !t.completed && !t.googleTaskId);
     const syncedResults = [];
+    let updateCount = 0;
 
-    for (const todo of tasksToSync) {
+    // 2. Add new incomplete tasks that haven't been synced yet
+    const newTasksToSync = todos.filter(t => !t.completed && !t.googleTaskId);
+    for (const todo of newTasksToSync) {
         const body = {
             title: todo.title,
             notes: "Created by AI ToDo App",
@@ -108,7 +109,40 @@ export const syncToGoogleTasks = async (todos) => {
             syncedResults.push({ id: todo.id, googleTaskId: data.id });
         }
     }
-    return syncedResults;
+
+    // 3. Update existing tasks that have googleTaskId (sync date and title changes)
+    const existingTasksToUpdate = todos.filter(t => !t.completed && t.googleTaskId);
+    for (const todo of existingTasksToUpdate) {
+        const updateBody = {};
+        let needsUpdate = false;
+
+        // Update title if changed
+        if (todo.title) {
+            updateBody.title = todo.title;
+            needsUpdate = true;
+        }
+
+        // Update due date if changed
+        if (todo.date) {
+            updateBody.due = formatDateForGoogleTasks(todo.date, todo.time);
+            needsUpdate = true;
+        } else {
+            // If date was removed, clear the due date
+            updateBody.due = null;
+            needsUpdate = true;
+        }
+
+        if (needsUpdate) {
+            try {
+                await updateGoogleTask(todo.googleTaskId, updateBody);
+                updateCount++;
+            } catch (e) {
+                console.error(`Failed to update Google Task ${todo.googleTaskId}`, e);
+            }
+        }
+    }
+
+    return { syncedResults, updateCount };
 };
 
 export const fetchFromGoogleTasks = async () => {

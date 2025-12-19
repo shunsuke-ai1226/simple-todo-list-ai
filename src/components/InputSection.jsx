@@ -25,8 +25,14 @@ export default function InputSection({ onGenerate, onAdd, isGenerating }) {
 
   const handleKeyDown = (e) => {
     if (e.key === 'Enter') {
-      if (e.shiftKey) {
-        // Shift + Enter -> Manual Add
+      // Command+Enter (Mac) or Ctrl+Enter (Windows/Linux) -> AI Generate
+      if (e.metaKey || e.ctrlKey) {
+        e.preventDefault();
+        if (!input.trim()) return;
+        handleSubmit(e);
+      }
+      // Shift+Enter -> Manual Add
+      else if (e.shiftKey) {
         e.preventDefault();
         if (!input.trim()) return;
         onAdd(input);
@@ -34,10 +40,11 @@ export default function InputSection({ onGenerate, onAdd, isGenerating }) {
         if (textareaRef.current) {
           textareaRef.current.style.height = 'auto';
         }
-      } else if (!e.nativeEvent.isComposing) {
-        // Enter (without Shift) -> AI Generate
-        // Check isComposing to avoid triggering during IME conversion (Japanese input)
-        handleSubmit(e);
+      }
+      // Enter (alone) -> New line (default behavior, do nothing)
+      // IME composition中は何もしない
+      else if (!e.nativeEvent.isComposing) {
+        // デフォルトの改行動作を許可（何もしない）
       }
     }
   };
@@ -71,7 +78,7 @@ export default function InputSection({ onGenerate, onAdd, isGenerating }) {
             marginTop: '1rem'
           }}>
             <span style={{ fontSize: '0.8rem', color: '#94a3b8' }}>
-              Enter でAI解析 / Shift + Enter でそのまま追加
+              Enter: 改行 / Shift+Enter: そのまま追加 / ⌘+Enter: AI解析
             </span>
             <button
               type="submit"
