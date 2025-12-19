@@ -7,9 +7,25 @@ export const generateTodosFromText = async (text, apiKey) => {
   }
 
   const genAI = new GoogleGenerativeAI(apiKey);
-  const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+  
+  // Gemini 2.0 Flashモデルのリスト（優先順位順）
+  // 無料枠が大きく、高速で動作するGemini 2.0 Flashを使用
+  const modelNames = [
+    "gemini-2.0-flash-exp",     // Gemini 2.0 Flash（実験的、無料枠が大きい）
+    "gemini-2.0-flash",         // Gemini 2.0 Flash（安定版）
+    "gemini-2.0-flash-thinking-exp", // Gemini 2.0 Flash Thinking（実験的）
+    "gemini-1.5-flash-latest",  // フォールバック: 1.5 Flash最新版
+    "gemini-1.5-pro-latest"     // フォールバック: 1.5 Pro最新版
+  ];
+  
+  let lastError = null;
+  
+  // 各モデルを順に試す
+  for (const modelName of modelNames) {
+    try {
+      const model = genAI.getGenerativeModel({ model: modelName });
 
-  const prompt = `
+      const prompt = `
     あなたは優秀なタスク管理アシスタントです。
     以下のユーザーの入力文を解析し、具体的なタスク（ToDo）のリストに変換してください。
     複合的な指示（例: 「AをしてからBをする」）は、必ず複数のタスクに分割してください。
@@ -31,31 +47,39 @@ export const generateTodosFromText = async (text, apiKey) => {
     "${text}"
   `;
 
-  try {
-    const result = await model.generateContent(prompt);
-    const response = await result.response;
-    let textResponse = response.text();
+      const result = await model.generateContent(prompt);
+      const response = await result.response;
+      let textResponse = response.text();
 
-    // Clean up markdown code blocks if present
-    textResponse = textResponse.replace(/```json/g, '').replace(/```/g, '').trim();
+      // Clean up markdown code blocks if present
+      textResponse = textResponse.replace(/```json/g, '').replace(/```/g, '').trim();
 
-    const tasks = JSON.parse(textResponse);
+      const tasks = JSON.parse(textResponse);
 
-    if (!Array.isArray(tasks)) {
-      throw new Error("AIからの応答が配列形式ではありませんでした。");
+      if (!Array.isArray(tasks)) {
+        throw new Error("AIからの応答が配列形式ではありませんでした。");
+      }
+
+      // 成功した場合は結果を返す
+      console.log(`成功: モデル ${modelName} を使用しました`);
+      return tasks.map(task => ({
+        id: uuidv4(),
+        title: String(task.title || '無題のタスク'),
+        category: String(task.category || 'その他'),
+        date: task.date ? String(task.date) : '',
+        time: task.time ? String(task.time) : '',
+        completed: false,
+        createdAt: new Date().toISOString()
+      }));
+    } catch (error) {
+      console.error(`モデル ${modelName} でのエラー:`, error.message);
+      lastError = error;
+      // 次のモデルを試す
+      continue;
     }
-
-    return tasks.map(task => ({
-      id: uuidv4(),
-      title: String(task.title || '無題のタスク'),
-      category: String(task.category || 'その他'),
-      date: task.date ? String(task.date) : '',
-      time: task.time ? String(task.time) : '',
-      completed: false,
-      createdAt: new Date().toISOString()
-    }));
-  } catch (error) {
-    console.error("Gemini API Error Details:", error);
-    throw new Error(`タスクの生成に失敗しました。(${error.message}) APIキーが正しいか確認してください。`);
   }
+  
+  // すべてのモデルで失敗した場合
+  console.error("すべてのモデルでエラーが発生しました。最後のエラー:", lastError);
+  throw new Error(`タスクの生成に失敗しました。(${lastError?.message || '不明なエラー'}) 利用可能なモデルが見つかりませんでした。APIキーが正しいか確認してください。`);
 };
