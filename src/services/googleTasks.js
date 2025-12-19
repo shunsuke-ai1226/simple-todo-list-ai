@@ -31,11 +31,14 @@ const formatDateForGoogleTasks = (date, time) => {
     
     // 時間が指定されている場合: RFC3339形式で送信（時間指定タスク）
     if (time && time.trim()) {
+        const trimmedTime = time.trim();
+        console.log(`時間が指定されています: "${trimmedTime}"`);
+        
         // 時間形式を検証（HH:mm形式）
         const timeRegex = /^\d{2}:\d{2}$/;
-        if (timeRegex.test(time.trim())) {
+        if (timeRegex.test(trimmedTime)) {
             // ローカルタイムゾーンで日時を作成
-            const dateTimeStr = `${date}T${time.trim()}:00`;
+            const dateTimeStr = `${date}T${trimmedTime}:00`;
             const localDate = new Date(dateTimeStr);
             
             // ローカルタイムゾーンのオフセットを取得
@@ -46,8 +49,14 @@ const formatDateForGoogleTasks = (date, time) => {
             const offsetStr = `${offsetSign}${String(offsetHours).padStart(2, '0')}:${String(offsetMinutes).padStart(2, '0')}`;
             
             // RFC3339形式: YYYY-MM-DDTHH:mm:ss+HH:mm（時間指定タスク）
-            return `${date}T${time.trim()}:00${offsetStr}`;
+            const result = `${date}T${trimmedTime}:00${offsetStr}`;
+            console.log(`RFC3339形式に変換: ${result}`);
+            return result;
+        } else {
+            console.warn(`無効な時間形式: "${trimmedTime}" (期待形式: HH:mm)`);
         }
+    } else {
+        console.log(`時間が指定されていません。終日タスクとして送信します。`);
     }
     
     // 時間が指定されていない場合: 日付のみを送信（終日タスク）
@@ -149,10 +158,12 @@ export const syncToGoogleTasks = async (todos) => {
             // 日付がある場合のみdueフィールドを追加
             // Google Tasks APIはRFC3339形式（YYYY-MM-DDTHH:mm:ssZ）または日付のみ（YYYY-MM-DD）を受け付ける
             if (todo.date && todo.date.trim()) {
-                const dueDate = formatDateForGoogleTasks(todo.date.trim(), todo.time);
+                // timeフィールドの値を確認（空文字列、null、undefinedをチェック）
+                const timeValue = todo.time && todo.time.trim() ? todo.time.trim() : null;
+                console.log(`タスク「${todo.title}」の日付・時間: date=${todo.date}, time=${timeValue || '(なし)'}, raw time="${todo.time}"`);
+                const dueDate = formatDateForGoogleTasks(todo.date.trim(), timeValue);
+                console.log(`フォーマット後のdue: ${dueDate}`);
                 if (dueDate) {
-                    // 日付のみの形式（YYYY-MM-DD）を送信
-                    // Google Tasks APIは日付のみも受け付けるが、正しい形式であることを確認
                     body.due = dueDate;
                 }
             }
