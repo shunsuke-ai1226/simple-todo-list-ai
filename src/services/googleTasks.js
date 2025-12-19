@@ -16,15 +16,51 @@ const loadGoogleScript = () => {
 };
 
 // Helper: Format date for Google Tasks API
-// タイムゾーンの問題を完全に回避するため、常に日付のみ（YYYY-MM-DD）を送信
-// Google Tasks APIは日付のみを受け付け、タイムゾーンの変換によるずれを防げる
+// Google Tasks APIはRFC3339形式（YYYY-MM-DDTHH:mm:ssZ）を期待
+// 日付のみの場合は、ローカルタイムゾーンの午前0時として送信
 const formatDateForGoogleTasks = (date, time) => {
     if (!date) return null;
     
-    // 時間が指定されていても、Google Tasksは主に日付のみを表示するため
-    // タイムゾーンの問題を完全に回避するため、常に日付のみを送信
+    // 日付文字列を検証（YYYY-MM-DD形式）
+    const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+    if (!dateRegex.test(date)) {
+        console.warn(`無効な日付形式: ${date}`);
+        return null;
+    }
+    
+    // 時間が指定されている場合
+    if (time && time.trim()) {
+        // 時間形式を検証（HH:mm形式）
+        const timeRegex = /^\d{2}:\d{2}$/;
+        if (timeRegex.test(time.trim())) {
+            // ローカルタイムゾーンで日時を作成
+            const dateTimeStr = `${date}T${time.trim()}:00`;
+            const localDate = new Date(dateTimeStr);
+            
+            // ローカルタイムゾーンのオフセットを取得
+            const offset = -localDate.getTimezoneOffset();
+            const offsetHours = Math.floor(Math.abs(offset) / 60);
+            const offsetMinutes = Math.abs(offset) % 60;
+            const offsetSign = offset >= 0 ? '+' : '-';
+            const offsetStr = `${offsetSign}${String(offsetHours).padStart(2, '0')}:${String(offsetMinutes).padStart(2, '0')}`;
+            
+            // RFC3339形式: YYYY-MM-DDTHH:mm:ss+HH:mm
+            return `${date}T${time.trim()}:00${offsetStr}`;
+        }
+    }
+    
+    // 時間が指定されていない場合: ローカルタイムゾーンの午前0時として送信
     // これにより、どのタイムゾーンからアクセスしても同じ日付が表示される
-    return date; // YYYY-MM-DD形式のまま送信
+    const dateTimeStr = `${date}T00:00:00`;
+    const localDate = new Date(dateTimeStr);
+    const offset = -localDate.getTimezoneOffset();
+    const offsetHours = Math.floor(Math.abs(offset) / 60);
+    const offsetMinutes = Math.abs(offset) % 60;
+    const offsetSign = offset >= 0 ? '+' : '-';
+    const offsetStr = `${offsetSign}${String(offsetHours).padStart(2, '0')}:${String(offsetMinutes).padStart(2, '0')}`;
+    
+    // RFC3339形式: YYYY-MM-DDTHH:mm:ss+HH:mm
+    return `${date}T00:00:00${offsetStr}`;
 };
 
 // Helper: Get Access Token (Cached or New)
@@ -101,18 +137,35 @@ export const syncToGoogleTasks = async (todos) => {
     
     for (const todo of newTasksToSync) {
         try {
+            // タイトルが空の場合はスキップ
+            if (!todo.title || !todo.title.trim()) {
+                console.warn(`タイトルが空のタスクをスキップ: ${todo.id}`);
+                continue;
+            }
+
             const body = {
-                title: todo.title,
-                notes: "Created by AI ToDo App",
+                title: todo.title.trim(),
             };
 
-            // 日付がある場合のみdueフィールドを追加（nullは送信しない）
-            if (todo.date) {
-                const dueDate = formatDateForGoogleTasks(todo.date, todo.time);
+            // notesフィールドはオプションなので、値がある場合のみ追加
+            if (todo.notes && todo.notes.trim()) {
+                body.notes = todo.notes.trim();
+            } else {
+                body.notes = "Created by AI ToDo App";
+            }
+
+            // 日付がある場合のみdueフィールドを追加
+            // Google Tasks APIはRFC3339形式（YYYY-MM-DDTHH:mm:ssZ）または日付のみ（YYYY-MM-DD）を受け付ける
+            if (todo.date && todo.date.trim()) {
+                const dueDate = formatDateForGoogleTasks(todo.date.trim(), todo.time);
                 if (dueDate) {
+                    // 日付のみの形式（YYYY-MM-DD）を送信
+                    // Google Tasks APIは日付のみも受け付けるが、正しい形式であることを確認
                     body.due = dueDate;
                 }
             }
+
+            console.log(`送信するリクエストボディ:`, JSON.stringify(body, null, 2));
 
             const res = await fetch(`https://tasks.googleapis.com/tasks/v1/lists/${defaultListId}/tasks`, {
                 method: 'POST',
