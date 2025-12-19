@@ -16,28 +16,15 @@ const loadGoogleScript = () => {
 };
 
 // Helper: Format date for Google Tasks API
-// タイムゾーンの問題を回避するため、時間がない場合は日付のみ、時間がある場合はローカルタイムゾーンを明示
+// タイムゾーンの問題を完全に回避するため、常に日付のみ（YYYY-MM-DD）を送信
+// Google Tasks APIは日付のみを受け付け、タイムゾーンの変換によるずれを防げる
 const formatDateForGoogleTasks = (date, time) => {
     if (!date) return null;
     
-    if (time) {
-        // 時間が指定されている場合: ローカルタイムゾーンを明示してRFC3339形式で送信
-        const dateTimeStr = `${date}T${time}:00`;
-        const localDate = new Date(dateTimeStr);
-        
-        // ローカルタイムゾーンのオフセットを取得（分単位）
-        const offset = -localDate.getTimezoneOffset();
-        const offsetHours = Math.floor(Math.abs(offset) / 60);
-        const offsetMinutes = Math.abs(offset) % 60;
-        const offsetSign = offset >= 0 ? '+' : '-';
-        const offsetStr = `${offsetSign}${String(offsetHours).padStart(2, '0')}:${String(offsetMinutes).padStart(2, '0')}`;
-        
-        // RFC3339形式: YYYY-MM-DDTHH:mm:ss+HH:mm
-        return `${date}T${time}:00${offsetStr}`;
-    } else {
-        // 時間が指定されていない場合: 日付のみを送信（タイムゾーンの問題を回避）
-        return date;
-    }
+    // 時間が指定されていても、Google Tasksは主に日付のみを表示するため
+    // タイムゾーンの問題を完全に回避するため、常に日付のみを送信
+    // これにより、どのタイムゾーンからアクセスしても同じ日付が表示される
+    return date; // YYYY-MM-DD形式のまま送信
 };
 
 // Helper: Get Access Token (Cached or New)
