@@ -15,6 +15,31 @@ const loadGoogleScript = () => {
     });
 };
 
+// Helper: Format date for Google Tasks API
+// タイムゾーンの問題を回避するため、時間がない場合は日付のみ、時間がある場合はローカルタイムゾーンを明示
+const formatDateForGoogleTasks = (date, time) => {
+    if (!date) return null;
+    
+    if (time) {
+        // 時間が指定されている場合: ローカルタイムゾーンを明示してRFC3339形式で送信
+        const dateTimeStr = `${date}T${time}:00`;
+        const localDate = new Date(dateTimeStr);
+        
+        // ローカルタイムゾーンのオフセットを取得（分単位）
+        const offset = -localDate.getTimezoneOffset();
+        const offsetHours = Math.floor(Math.abs(offset) / 60);
+        const offsetMinutes = Math.abs(offset) % 60;
+        const offsetSign = offset >= 0 ? '+' : '-';
+        const offsetStr = `${offsetSign}${String(offsetHours).padStart(2, '0')}:${String(offsetMinutes).padStart(2, '0')}`;
+        
+        // RFC3339形式: YYYY-MM-DDTHH:mm:ss+HH:mm
+        return `${date}T${time}:00${offsetStr}`;
+    } else {
+        // 時間が指定されていない場合: 日付のみを送信（タイムゾーンの問題を回避）
+        return date;
+    }
+};
+
 // Helper: Get Access Token (Cached or New)
 const getAccessToken = async () => {
     const clientId = localStorage.getItem('google_client_id');
@@ -79,18 +104,7 @@ export const syncToGoogleTasks = async (todos) => {
         };
 
         if (todo.date) {
-            let dateStr = todo.date;
-            if (todo.time) {
-                dateStr += `T${todo.time}:00`;
-            } else {
-                dateStr += 'T00:00:00';
-            }
-            // Create date object and format to ISO string
-            // Note: Google Tasks 'due' field is technically date-only in many contexts, 
-            // but sending RFC3339 timestamp is required. 
-            // If we send time, it might be stored but not displayed in some views, 
-            // or truncated. However, we will try to send the full timestamp.
-            body.due = new Date(dateStr).toISOString();
+            body.due = formatDateForGoogleTasks(todo.date, todo.time);
         }
 
         const res = await fetch(`https://tasks.googleapis.com/tasks/v1/lists/${defaultListId}/tasks`, {
